@@ -81,7 +81,7 @@ class DiscreteSchedule(nn.Module):
         t = t.float()
         low_idx = t.floor().long()
         high_idx = t.ceil().long()
-        w = t-low_idx if t.device.type == 'mps' else t.frac()
+        w = t - low_idx if t.device.type == 'mps' else t.frac()
         log_sigma = (1 - w) * self.log_sigmas[low_idx] + w * self.log_sigmas[high_idx]
         return log_sigma.exp()
 

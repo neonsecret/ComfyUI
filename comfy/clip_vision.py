@@ -4,6 +4,7 @@ import os
 import torch
 import comfy.ops
 
+
 class ClipVisionModel():
     def __init__(self, json_config):
         config = CLIPVisionConfig.from_json_file(json_config)
@@ -15,9 +16,9 @@ class ClipVisionModel():
                                             do_convert_rgb=True,
                                             do_normalize=True,
                                             do_resize=True,
-                                            image_mean=[ 0.48145466,0.4578275,0.40821073],
-                                            image_std=[0.26862954,0.26130258,0.27577711],
-                                            resample=3, #bicubic
+                                            image_mean=[0.48145466, 0.4578275, 0.40821073],
+                                            image_std=[0.26862954, 0.26130258, 0.27577711],
+                                            resample=3,  # bicubic
                                             size=224)
 
     def load_sd(self, sd):
@@ -28,6 +29,7 @@ class ClipVisionModel():
         inputs = self.processor(images=[img], return_tensors="pt")
         outputs = self.model(**inputs)
         return outputs
+
 
 def convert_to_transformers(sd, prefix):
     sd_k = sd.keys()
@@ -52,6 +54,7 @@ def convert_to_transformers(sd, prefix):
         sd = transformers_convert(sd, prefix, "vision_model.", 32)
     return sd
 
+
 def load_clipvision_from_sd(sd, prefix="", convert_keys=False):
     if convert_keys:
         sd = convert_to_transformers(sd, prefix)
@@ -68,6 +71,7 @@ def load_clipvision_from_sd(sd, prefix="", convert_keys=False):
             t = sd.pop(k)
             del t
     return clip
+
 
 def load(ckpt_path):
     sd = load_torch_file(ckpt_path)

@@ -2,6 +2,7 @@ from ..diffusionmodules.upscaling import ImageConcatWithNoiseAugmentation
 from ..diffusionmodules.openaimodel import Timestep
 import torch
 
+
 class CLIPEmbeddingNoiseAugmentation(ImageConcatWithNoiseAugmentation):
     def __init__(self, *args, clip_stats_path=None, timestep_dim=256, **kwargs):
         super().__init__(*args, **kwargs)

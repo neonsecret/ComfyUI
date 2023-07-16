@@ -9,9 +9,11 @@ def state_dict_key_replace(state_dict, keys_to_replace):
             state_dict[keys_to_replace[x]] = state_dict.pop(x)
     return state_dict
 
+
 def state_dict_prefix_replace(state_dict, replace_prefix):
     for rp in replace_prefix:
-        replace = list(map(lambda a: (a, "{}{}".format(replace_prefix[rp], a[len(rp):])), filter(lambda a: a.startswith(rp), state_dict.keys())))
+        replace = list(map(lambda a: (a, "{}{}".format(replace_prefix[rp], a[len(rp):])),
+                           filter(lambda a: a.startswith(rp), state_dict.keys())))
         for x in replace:
             state_dict[x[1]] = state_dict.pop(x[0])
     return state_dict
@@ -22,6 +24,7 @@ class ClipTarget:
         self.clip = clip
         self.tokenizer = tokenizer
         self.params = {}
+
 
 class BASE:
     unet_config = {}
@@ -57,7 +60,8 @@ class BASE:
         if self.inpaint_model():
             return model_base.SDInpaint(self, v_prediction=self.v_prediction(state_dict, prefix))
         elif self.noise_aug_config is not None:
-            return model_base.SD21UNCLIP(self, self.noise_aug_config, v_prediction=self.v_prediction(state_dict, prefix))
+            return model_base.SD21UNCLIP(self, self.noise_aug_config,
+                                         v_prediction=self.v_prediction(state_dict, prefix))
         else:
             return model_base.BaseModel(self, v_prediction=self.v_prediction(state_dict, prefix))
 
@@ -75,4 +79,3 @@ class BASE:
     def process_vae_state_dict_for_saving(self, state_dict):
         replace_prefix = {"": "first_stage_model."}
         return state_dict_prefix_replace(state_dict, replace_prefix)
-

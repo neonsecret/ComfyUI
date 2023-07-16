@@ -9,6 +9,7 @@ from comfy.ldm.modules.distributions.distributions import DiagonalGaussianDistri
 from comfy.ldm.util import instantiate_from_config
 from comfy.ldm.modules.ema import LitEma
 
+
 # class AutoencoderKL(pl.LightningModule):
 class AutoencoderKL(torch.nn.Module):
     def __init__(self,
@@ -30,11 +31,11 @@ class AutoencoderKL(torch.nn.Module):
         self.decoder = Decoder(**ddconfig)
         self.loss = instantiate_from_config(lossconfig)
         assert ddconfig["double_z"]
-        self.quant_conv = torch.nn.Conv2d(2*ddconfig["z_channels"], 2*embed_dim, 1)
+        self.quant_conv = torch.nn.Conv2d(2 * ddconfig["z_channels"], 2 * embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, ddconfig["z_channels"], 1)
         self.embed_dim = embed_dim
         if colorize_nlabels is not None:
-            assert type(colorize_nlabels)==int
+            assert type(colorize_nlabels) == int
             self.register_buffer("colorize", torch.randn(3, colorize_nlabels, 1, 1))
         if monitor is not None:
             self.monitor = monitor
@@ -141,10 +142,10 @@ class AutoencoderKL(torch.nn.Module):
         inputs = self.get_input(batch, self.image_key)
         reconstructions, posterior = self(inputs)
         aeloss, log_dict_ae = self.loss(inputs, reconstructions, posterior, 0, self.global_step,
-                                        last_layer=self.get_last_layer(), split="val"+postfix)
+                                        last_layer=self.get_last_layer(), split="val" + postfix)
 
         discloss, log_dict_disc = self.loss(inputs, reconstructions, posterior, 1, self.global_step,
-                                            last_layer=self.get_last_layer(), split="val"+postfix)
+                                            last_layer=self.get_last_layer(), split="val" + postfix)
 
         self.log(f"val{postfix}/rec_loss", log_dict_ae[f"val{postfix}/rec_loss"])
         self.log_dict(log_dict_ae)
@@ -198,7 +199,7 @@ class AutoencoderKL(torch.nn.Module):
         if not hasattr(self, "colorize"):
             self.register_buffer("colorize", torch.randn(3, x.shape[1], 1, 1).to(x))
         x = F.conv2d(x, weight=self.colorize)
-        x = 2.*(x-x.min())/(x.max()-x.min()) - 1.
+        x = 2. * (x - x.min()) / (x.max() - x.min()) - 1.
         return x
 
 
@@ -220,4 +221,3 @@ class IdentityFirstStage(torch.nn.Module):
 
     def forward(self, x, *args, **kwargs):
         return x
-

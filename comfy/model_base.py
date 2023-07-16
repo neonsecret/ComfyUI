@@ -6,6 +6,7 @@ from comfy.ldm.modules.diffusionmodules.openaimodel import Timestep
 import numpy as np
 from . import utils
 
+
 class BaseModel(torch.nn.Module):
     def __init__(self, model_config, v_prediction=False):
         super().__init__()
@@ -13,7 +14,8 @@ class BaseModel(torch.nn.Module):
         unet_config = model_config.unet_config
         self.latent_format = model_config.latent_format
         self.model_config = model_config
-        self.register_schedule(given_betas=None, beta_schedule="linear", timesteps=1000, linear_start=0.00085, linear_end=0.012, cosine_s=8e-3)
+        self.register_schedule(given_betas=None, beta_schedule="linear", timesteps=1000, linear_start=0.00085,
+                               linear_end=0.012, cosine_s=8e-3)
         self.diffusion_model = UNetModel(**unet_config)
         self.v_prediction = v_prediction
         if self.v_prediction:
@@ -32,7 +34,8 @@ class BaseModel(torch.nn.Module):
         if given_betas is not None:
             betas = given_betas
         else:
-            betas = make_beta_schedule(beta_schedule, timesteps, linear_start=linear_start, linear_end=linear_end, cosine_s=cosine_s)
+            betas = make_beta_schedule(beta_schedule, timesteps, linear_start=linear_start, linear_end=linear_end,
+                                       cosine_s=cosine_s)
         alphas = 1. - betas
         alphas_cumprod = np.cumprod(alphas, axis=0)
         alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
@@ -58,7 +61,8 @@ class BaseModel(torch.nn.Module):
         context = context.to(dtype)
         if c_adm is not None:
             c_adm = c_adm.to(dtype)
-        return self.diffusion_model(xc, t, context=context, y=c_adm, control=control, transformer_options=transformer_options).float()
+        return self.diffusion_model(xc, t, context=context, y=c_adm, control=control,
+                                    transformer_options=transformer_options).float()
 
     def get_dtype(self):
         return self.diffusion_model.dtype
@@ -120,7 +124,8 @@ class SD21UNCLIP(BaseModel):
                 weight = unclip_cond["strength"]
                 noise_augment = unclip_cond["noise_augmentation"]
                 noise_level = round((self.noise_augmentor.max_noise_level - 1) * noise_augment)
-                c_adm, noise_level_emb = self.noise_augmentor(adm_cond.to(device), noise_level=torch.tensor([noise_level], device=device))
+                c_adm, noise_level_emb = self.noise_augmentor(adm_cond.to(device),
+                                                              noise_level=torch.tensor([noise_level], device=device))
                 adm_out = torch.cat((c_adm, noise_level_emb), 1) * weight
                 weights.append(weight)
                 noise_aug.append(noise_augment)
@@ -128,20 +133,23 @@ class SD21UNCLIP(BaseModel):
 
             if len(noise_aug) > 1:
                 adm_out = torch.stack(adm_inputs).sum(0)
-                #TODO: add a way to control this
+                # TODO: add a way to control this
                 noise_augment = 0.05
                 noise_level = round((self.noise_augmentor.max_noise_level - 1) * noise_augment)
-                c_adm, noise_level_emb = self.noise_augmentor(adm_out[:, :self.noise_augmentor.time_embed.dim], noise_level=torch.tensor([noise_level], device=device))
+                c_adm, noise_level_emb = self.noise_augmentor(adm_out[:, :self.noise_augmentor.time_embed.dim],
+                                                              noise_level=torch.tensor([noise_level], device=device))
                 adm_out = torch.cat((c_adm, noise_level_emb), 1)
         else:
             adm_out = torch.zeros((1, self.adm_channels))
 
         return adm_out
 
+
 class SDInpaint(BaseModel):
     def __init__(self, model_config, v_prediction=False):
         super().__init__(model_config, v_prediction)
         self.concat_keys = ("mask", "masked_image")
+
 
 class SDXLRefiner(BaseModel):
     def __init__(self, model_config, v_prediction=False):
@@ -167,8 +175,9 @@ class SDXLRefiner(BaseModel):
         out.append(self.embedder(torch.Tensor([crop_h])))
         out.append(self.embedder(torch.Tensor([crop_w])))
         out.append(self.embedder(torch.Tensor([aesthetic_score])))
-        flat = torch.flatten(torch.cat(out))[None, ]
+        flat = torch.flatten(torch.cat(out))[None,]
         return torch.cat((clip_pooled.to(flat.device), flat), dim=1)
+
 
 class SDXL(BaseModel):
     def __init__(self, model_config, v_prediction=False):
@@ -192,5 +201,5 @@ class SDXL(BaseModel):
         out.append(self.embedder(torch.Tensor([crop_w])))
         out.append(self.embedder(torch.Tensor([target_height])))
         out.append(self.embedder(torch.Tensor([target_width])))
-        flat = torch.flatten(torch.cat(out))[None, ]
+        flat = torch.flatten(torch.cat(out))[None,]
         return torch.cat((clip_pooled.to(flat.device), flat), dim=1)

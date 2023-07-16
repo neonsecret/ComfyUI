@@ -17,6 +17,7 @@ if model_management.xformers_enabled():
     import xformers.ops
 
 from comfy.cli_args import args
+
 # CrossAttn precision handling
 if args.dont_upcast_attention:
     print("disabling upcasting of attention")
@@ -30,7 +31,7 @@ def exists(val):
 
 
 def uniq(arr):
-    return{el: True for el in arr}.keys()
+    return {el: True for el in arr}.keys()
 
 
 def default(val, d):
@@ -129,12 +130,12 @@ class SpatialSelfAttention(nn.Module):
         v = self.v(h_)
 
         # compute attention
-        b,c,h,w = q.shape
+        b, c, h, w = q.shape
         q = rearrange(q, 'b c h w -> b (h w) c')
         k = rearrange(k, 'b c h w -> b c (h w)')
         w_ = torch.einsum('bij,bjk->bik', q, k)
 
-        w_ = w_ * (int(c)**(-0.5))
+        w_ = w_ * (int(c) ** (-0.5))
         w_ = torch.nn.functional.softmax(w_, dim=2)
 
         # attend to values
@@ -144,7 +145,7 @@ class SpatialSelfAttention(nn.Module):
         h_ = rearrange(h_, 'b c (h w) -> b c h w', h=h)
         h_ = self.proj_out(h_)
 
-        return x+h_
+        return x + h_
 
 
 class CrossAttentionBirchSan(nn.Module):
@@ -178,29 +179,29 @@ class CrossAttentionBirchSan(nn.Module):
 
         del context, x
 
-        query = query.unflatten(-1, (self.heads, -1)).transpose(1,2).flatten(end_dim=1)
-        key_t = key.transpose(1,2).unflatten(1, (self.heads, -1)).flatten(end_dim=1)
+        query = query.unflatten(-1, (self.heads, -1)).transpose(1, 2).flatten(end_dim=1)
+        key_t = key.transpose(1, 2).unflatten(1, (self.heads, -1)).flatten(end_dim=1)
         del key
-        value = value.unflatten(-1, (self.heads, -1)).transpose(1,2).flatten(end_dim=1)
+        value = value.unflatten(-1, (self.heads, -1)).transpose(1, 2).flatten(end_dim=1)
 
         dtype = query.dtype
-        upcast_attention = _ATTN_PRECISION =="fp32" and query.dtype != torch.float32
+        upcast_attention = _ATTN_PRECISION == "fp32" and query.dtype != torch.float32
         if upcast_attention:
-            bytes_per_token = torch.finfo(torch.float32).bits//8
+            bytes_per_token = torch.finfo(torch.float32).bits // 8
         else:
-            bytes_per_token = torch.finfo(query.dtype).bits//8
+            bytes_per_token = torch.finfo(query.dtype).bits // 8
         batch_x_heads, q_tokens, _ = query.shape
         _, _, k_tokens = key_t.shape
         qk_matmul_size_bytes = batch_x_heads * bytes_per_token * q_tokens * k_tokens
 
         mem_free_total, mem_free_torch = model_management.get_free_memory(query.device, True)
 
-        chunk_threshold_bytes = mem_free_torch * 0.5 #Using only this seems to work better on AMD
+        chunk_threshold_bytes = mem_free_torch * 0.5  # Using only this seems to work better on AMD
 
         kv_chunk_size_min = None
 
-        #not sure at all about the math here
-        #TODO: tweak this
+        # not sure at all about the math here
+        # TODO: tweak this
         if mem_free_total > 8192 * 1024 * 1024 * 1.3:
             query_chunk_size_x = 1024 * 4
         elif mem_free_total > 4096 * 1024 * 1024 * 1.3:
@@ -208,7 +209,8 @@ class CrossAttentionBirchSan(nn.Module):
         else:
             query_chunk_size_x = 1024
         kv_chunk_size_min_x = None
-        kv_chunk_size_x = (int((chunk_threshold_bytes // (batch_x_heads * bytes_per_token * query_chunk_size_x)) * 2.0) // 1024) * 1024
+        kv_chunk_size_x = (int((chunk_threshold_bytes // (
+                    batch_x_heads * bytes_per_token * query_chunk_size_x)) * 2.0) // 1024) * 1024
         if kv_chunk_size_x < 1024:
             kv_chunk_size_x = None
 
@@ -235,7 +237,7 @@ class CrossAttentionBirchSan(nn.Module):
 
         hidden_states = hidden_states.to(dtype)
 
-        hidden_states = hidden_states.unflatten(0, (-1, self.heads)).transpose(1,2).flatten(start_dim=2)
+        hidden_states = hidden_states.unflatten(0, (-1, self.heads)).transpose(1, 2).flatten(start_dim=2)
 
         out_proj, dropout = self.to_out
         hidden_states = out_proj(hidden_states)
@@ -288,16 +290,15 @@ class CrossAttentionDoggettx(nn.Module):
         mem_required = tensor_size * modifier
         steps = 1
 
-
         if mem_required > mem_free_total:
-            steps = 2**(math.ceil(math.log(mem_required / mem_free_total, 2)))
+            steps = 2 ** (math.ceil(math.log(mem_required / mem_free_total, 2)))
             # print(f"Expected tensor size:{tensor_size/gb:0.1f}GB, cuda free:{mem_free_cuda/gb:0.1f}GB "
             #      f"torch free:{mem_free_torch/gb:0.1f} total:{mem_free_total/gb:0.1f} steps:{steps}")
 
         if steps > 64:
             max_res = math.floor(math.sqrt(math.sqrt(mem_free_total / 2.5)) / 8) * 64
             raise RuntimeError(f'Not enough memory, use lower resolution (max approx. {max_res}x{max_res}). '
-                               f'Need: {mem_required/64/gb:0.1f}GB free, Have:{mem_free_total/gb:0.1f}GB free')
+                               f'Need: {mem_required / 64 / gb:0.1f}GB free, Have:{mem_free_total / gb:0.1f}GB free')
 
         # print("steps", steps, mem_required, mem_free_total, modifier, q.element_size(), tensor_size)
         first_op_done = False
@@ -307,8 +308,8 @@ class CrossAttentionDoggettx(nn.Module):
                 slice_size = q.shape[1] // steps if (q.shape[1] % steps) == 0 else q.shape[1]
                 for i in range(0, q.shape[1], slice_size):
                     end = i + slice_size
-                    if _ATTN_PRECISION =="fp32":
-                        with torch.autocast(enabled=False, device_type = 'cuda'):
+                    if _ATTN_PRECISION == "fp32":
+                        with torch.autocast(enabled=False, device_type='cuda'):
                             s1 = einsum('b i d, b j d -> b i j', q[:, i:end].float(), k.float()) * self.scale
                     else:
                         s1 = einsum('b i d, b j d -> b i j', q[:, i:end], k) * self.scale
@@ -341,6 +342,7 @@ class CrossAttentionDoggettx(nn.Module):
         del r1
 
         return self.to_out(r2)
+
 
 class CrossAttention(nn.Module):
     def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0., dtype=None):
@@ -375,8 +377,8 @@ class CrossAttention(nn.Module):
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
 
         # force cast to fp32 to avoid overflowing
-        if _ATTN_PRECISION =="fp32":
-            with torch.autocast(enabled=False, device_type = 'cuda'):
+        if _ATTN_PRECISION == "fp32":
+            with torch.autocast(enabled=False, device_type='cuda'):
                 q, k = q.float(), k.float()
                 sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
         else:
@@ -396,6 +398,7 @@ class CrossAttention(nn.Module):
         out = einsum('b i j, b j d -> b i d', sim, v)
         out = rearrange(out, '(b h) n d -> b n (h d)', h=h)
         return self.to_out(out)
+
 
 class MemoryEfficientCrossAttention(nn.Module):
     # https://github.com/MatthieuTPHR/diffusers/blob/d80b531ff8060ec1ea982b65a1b8df70f73aa67c/src/diffusers/models/attention.py#L223
@@ -429,10 +432,10 @@ class MemoryEfficientCrossAttention(nn.Module):
         b, _, _ = q.shape
         q, k, v = map(
             lambda t: t.unsqueeze(3)
-            .reshape(b, t.shape[1], self.heads, self.dim_head)
-            .permute(0, 2, 1, 3)
-            .reshape(b * self.heads, t.shape[1], self.dim_head)
-            .contiguous(),
+                .reshape(b, t.shape[1], self.heads, self.dim_head)
+                .permute(0, 2, 1, 3)
+                .reshape(b * self.heads, t.shape[1], self.dim_head)
+                .contiguous(),
             (q, k, v),
         )
 
@@ -443,11 +446,12 @@ class MemoryEfficientCrossAttention(nn.Module):
             raise NotImplementedError
         out = (
             out.unsqueeze(0)
-            .reshape(b, self.heads, out.shape[1], self.dim_head)
-            .permute(0, 2, 1, 3)
-            .reshape(b, out.shape[1], self.heads * self.dim_head)
+                .reshape(b, self.heads, out.shape[1], self.dim_head)
+                .permute(0, 2, 1, 3)
+                .reshape(b, out.shape[1], self.heads * self.dim_head)
         )
         return self.to_out(out)
+
 
 class CrossAttentionPytorch(nn.Module):
     def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0., dtype=None):
@@ -491,6 +495,7 @@ class CrossAttentionPytorch(nn.Module):
 
         return self.to_out(out)
 
+
 if model_management.xformers_enabled():
     print("Using xformers cross attention")
     CrossAttention = MemoryEfficientCrossAttention
@@ -502,7 +507,8 @@ else:
         print("Using split optimization for cross attention")
         CrossAttention = CrossAttentionDoggettx
     else:
-        print("Using sub quadratic optimization for cross attention, if you have memory or speed issues try using: --use-split-cross-attention")
+        print(
+            "Using sub quadratic optimization for cross attention, if you have memory or speed issues try using: --use-split-cross-attention")
         CrossAttention = CrossAttentionBirchSan
 
 
@@ -512,10 +518,12 @@ class BasicTransformerBlock(nn.Module):
         super().__init__()
         self.disable_self_attn = disable_self_attn
         self.attn1 = CrossAttention(query_dim=dim, heads=n_heads, dim_head=d_head, dropout=dropout,
-                              context_dim=context_dim if self.disable_self_attn else None, dtype=dtype)  # is a self-attention if not self.disable_self_attn
+                                    context_dim=context_dim if self.disable_self_attn else None,
+                                    dtype=dtype)  # is a self-attention if not self.disable_self_attn
         self.ff = FeedForward(dim, dropout=dropout, glu=gated_ff, dtype=dtype)
         self.attn2 = CrossAttention(query_dim=dim, context_dim=context_dim,
-                              heads=n_heads, dim_head=d_head, dropout=dropout, dtype=dtype)  # is self-attn if context is none
+                                    heads=n_heads, dim_head=d_head, dropout=dropout,
+                                    dtype=dtype)  # is self-attn if context is none
         self.norm1 = nn.LayerNorm(dim, dtype=dtype)
         self.norm2 = nn.LayerNorm(dim, dtype=dtype)
         self.norm3 = nn.LayerNorm(dim, dtype=dtype)
@@ -645,6 +653,7 @@ class SpatialTransformer(nn.Module):
     Finally, reshape to image
     NEW: use_linear for more efficiency instead of the 1x1 convs
     """
+
     def __init__(self, in_channels, n_heads, d_head,
                  depth=1, dropout=0., context_dim=None,
                  disable_self_attn=False, use_linear=False,
@@ -667,13 +676,13 @@ class SpatialTransformer(nn.Module):
         self.transformer_blocks = nn.ModuleList(
             [BasicTransformerBlock(inner_dim, n_heads, d_head, dropout=dropout, context_dim=context_dim[d],
                                    disable_self_attn=disable_self_attn, checkpoint=use_checkpoint, dtype=dtype)
-                for d in range(depth)]
+             for d in range(depth)]
         )
         if not use_linear:
-            self.proj_out = nn.Conv2d(inner_dim,in_channels,
-                                                  kernel_size=1,
-                                                  stride=1,
-                                                  padding=0, dtype=dtype)
+            self.proj_out = nn.Conv2d(inner_dim, in_channels,
+                                      kernel_size=1,
+                                      stride=1,
+                                      padding=0, dtype=dtype)
         else:
             self.proj_out = comfy.ops.Linear(in_channels, inner_dim, dtype=dtype)
         self.use_linear = use_linear
@@ -699,4 +708,3 @@ class SpatialTransformer(nn.Module):
         if not self.use_linear:
             x = self.proj_out(x)
         return x + x_in
-

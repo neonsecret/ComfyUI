@@ -253,5 +253,3 @@ def convert_text_enc_state_dict_v20(text_enc_dict, prefix=""):
 
 def convert_text_enc_state_dict(text_enc_dict):
     return text_enc_dict
-
-

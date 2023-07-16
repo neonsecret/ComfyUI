@@ -9,7 +9,7 @@ def exists(val):
 
 
 def uniq(arr):
-    return{el: True for el in arr}.keys()
+    return {el: True for el in arr}.keys()
 
 
 def default(val, d):
@@ -72,7 +72,6 @@ class GatedCrossAttentionDense(nn.Module):
         self.scale = 1
 
     def forward(self, x, objs):
-
         x = x + self.scale * \
             torch.tanh(self.alpha_attn) * self.attn(self.norm1(x), objs, objs)
         x = x + self.scale * \
@@ -108,7 +107,6 @@ class GatedSelfAttentionDense(nn.Module):
         self.scale = 1
 
     def forward(self, x, objs):
-
         N_visual = x.shape[1]
         objs = self.linear(objs)
 
@@ -144,7 +142,6 @@ class GatedSelfAttentionDense2(nn.Module):
         self.scale = 1
 
     def forward(self, x, objs):
-
         B, N_visual, _ = x.shape
         B, N_ground, _ = objs.shape
 
@@ -160,7 +157,7 @@ class GatedSelfAttentionDense2(nn.Module):
 
         # select grounding token and resize it to visual token size as residual
         out = self.attn(self.norm1(torch.cat([x, objs], dim=1)))[
-            :, N_visual:, :]
+              :, N_visual:, :]
         out = out.permute(0, 2, 1).reshape(B, -1, size_g, size_g)
         out = torch.nn.functional.interpolate(
             out, (size_v, size_v), mode='bicubic')
@@ -176,7 +173,6 @@ class GatedSelfAttentionDense2(nn.Module):
 
 class FourierEmbedder():
     def __init__(self, num_freqs=64, temperature=100):
-
         self.num_freqs = num_freqs
         self.temperature = temperature
         self.freq_bands = temperature ** (torch.arange(num_freqs) / num_freqs)
@@ -228,7 +224,7 @@ class PositionNet(nn.Module):
 
         # replace padding with learnable null embedding
         positive_embeddings = positive_embeddings * \
-            masks + (1 - masks) * positive_null
+                              masks + (1 - masks) * positive_null
         xyxy_embedding = xyxy_embedding * masks + (1 - masks) * xyxy_null
 
         objs = self.linears(
@@ -254,6 +250,7 @@ class Gligen(nn.Module):
 
         if self.lowvram == True:
             self.position_net.cpu()
+
             def func_lowvram(x, extra_options):
                 key = extra_options["transformer_index"]
                 module = self.module_list[key]
@@ -261,12 +258,14 @@ class Gligen(nn.Module):
                 r = module(x, objs)
                 module.cpu()
                 return r
+
             return func_lowvram
         else:
             def func(x, extra_options):
                 key = extra_options["transformer_index"]
                 module = self.module_list[key]
                 return module(x, objs)
+
             return func
 
     def set_position(self, latent_image_shape, position_params, device):
@@ -321,6 +320,7 @@ class Gligen(nn.Module):
     def get_models(self):
         return [self]
 
+
 def load_gligen(sd):
     sd_k = sd.keys()
     output_list = []
@@ -328,7 +328,7 @@ def load_gligen(sd):
     for a in ["input_blocks", "middle_block", "output_blocks"]:
         for b in range(20):
             k_temp = filter(lambda k: "{}.{}.".format(a, b)
-                            in k and ".fuser." in k, sd_k)
+                                      in k and ".fuser." in k, sd_k)
             k_temp = map(lambda k: (k, k.split(".fuser.")[-1]), k_temp)
 
             n_sd = {}
@@ -356,6 +356,7 @@ def load_gligen(sd):
 
         class WeightsLoader(torch.nn.Module):
             pass
+
         w = WeightsLoader()
         w.position_net = PositionNet(in_dim, out_dim)
         w.load_state_dict(sd, strict=False)

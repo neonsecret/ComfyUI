@@ -1,5 +1,5 @@
-
 from . import supported_models
+
 
 def count_blocks(state_dict_keys, prefix_string):
     count = 0
@@ -13,6 +13,7 @@ def count_blocks(state_dict_keys, prefix_string):
             break
         count += 1
     return count
+
 
 def detect_unet_config(state_dict, key_prefix, use_fp16):
     state_dict_keys = list(state_dict.keys())
@@ -43,7 +44,6 @@ def detect_unet_config(state_dict, key_prefix, use_fp16):
     context_dim = None
     use_linear_in_transformer = False
 
-
     current_res = 1
     count = 0
 
@@ -57,7 +57,7 @@ def detect_unet_config(state_dict, key_prefix, use_fp16):
         if len(block_keys) == 0:
             break
 
-        if "{}0.op.weight".format(prefix) in block_keys: #new layer
+        if "{}0.op.weight".format(prefix) in block_keys:  # new layer
             if last_transformer_depth > 0:
                 attention_resolutions.append(current_res)
             transformer_depth.append(last_transformer_depth)
@@ -89,7 +89,8 @@ def detect_unet_config(state_dict, key_prefix, use_fp16):
     transformer_depth.append(last_transformer_depth)
     num_res_blocks.append(last_res_blocks)
     channel_mult.append(last_channel_mult)
-    transformer_depth_middle = count_blocks(state_dict_keys, '{}middle_block.1.transformer_blocks.'.format(key_prefix) + '{}')
+    transformer_depth_middle = count_blocks(state_dict_keys,
+                                            '{}middle_block.1.transformer_blocks.'.format(key_prefix) + '{}')
 
     if len(set(num_res_blocks)) == 1:
         num_res_blocks = num_res_blocks[0]
@@ -108,12 +109,14 @@ def detect_unet_config(state_dict, key_prefix, use_fp16):
     unet_config["context_dim"] = context_dim
     return unet_config
 
+
 def model_config_from_unet_config(unet_config):
     for model_config in supported_models.models:
         if model_config.matches(unet_config):
             return model_config(unet_config)
 
     return None
+
 
 def model_config_from_unet(state_dict, unet_key_prefix, use_fp16):
     unet_config = detect_unet_config(state_dict, unet_key_prefix, use_fp16)
